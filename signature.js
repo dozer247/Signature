@@ -21,6 +21,13 @@ var Paint = function(options) {
       // ctx.lineWidth = options.size || Math.ceil(Math.random() * 35);
       ctx.lineCap = options.lineCap || "round";
 
+      this.positions = []
+      this.keepDrawing = false;
+      this.startX = w;
+      this.startY= h;
+      this.previousFrame = 0;
+      this.x = 0;
+      this.y =0;
 
       this.ctx = ctx;
       this.canvas = canvas;
@@ -51,19 +58,47 @@ var Paint = function(options) {
     };
     Paint.prototype.initEvents = function() {
         var canvas = this.canvas;
-        canvas.addEventListener('pointerdown', this.onPointerDown.bind(this),false);
-        canvas.addEventListener('pointermove', this.onPointerMove.bind(this),false);
-        canvas.addEventListener('pointerup', this.onPointerUp.bind(this),false);
-        canvas.addEventListener('pointercancel', this.onPointerUp.bind(this),false);
+        if (window.PointerEvent){
+            canvas.addEventListener('pointerdown', this.onPointerDown.bind(this),false);
+            canvas.addEventListener('pointermove', this.onPointerMove.bind(this),false);
+            canvas.addEventListener('pointerup', this.onPointerUp.bind(this),false);
+            canvas.addEventListener('pointercancel', this.onPointerUp.bind(this),false);
+        }else {
+            
+                canvas.addEventListener('touchmove', this.onTouchMove.bind(this), false);
+                canvas.addEventListener('touchend', this.onTouchEnd.bind(this), false);
+                // This prevents the fake mouse event from being dispatched as well
+                canvas.removeEventListener('mousedown', this.mouseDownEvent);
+                canvas.addEventListener('touchstart', this.onTouchStart.bind(this), false);
+            
+                canvas.addEventListener('mousemove', this.onTouchMove.bind(this), false);
+                canvas.addEventListener('mouseup', this.onTouchEnd.bind(this), false);
+                canvas.addEventListener('mousedown', this.onTouchStart.bind(this), false);
+            
+        }
     };
 
 
     Paint.prototype.removeEvents = function() {
         var canvas = this.canvas;
-        canvas.removeEventListener('pointerdown', this.onPointerDown);
-        canvas.removeEventListener('pointermove', this.onPointerMove);
-        canvas.removeEventListener('pointerup', this.onPointerUp);
-        canvas.removeEventListener('pointercancel', this.onPointerUp);
+        if (window.PointerEvent){
+            canvas.removeEventListener('pointerdown', this.onPointerDown);
+            canvas.removeEventListener('pointermove', this.onPointerMove);
+            canvas.removeEventListener('pointerup', this.onPointerUp);
+            canvas.removeEventListener('pointercancel', this.onPointerUp);
+        }else {
+            
+                canvas.removeEventListener('touchmove', this.onTouchMove.bind(this), false);
+                canvas.removeEventListener('touchend', this.onTouchEnd.bind(this), false);
+                // This prevents the fake mouse event from being dispatched as well
+                canvas.removeEventListener('mousedown', this.mouseDownEvent);
+                canvas.removeEventListener('touchstart', this.onTouchStart.bind(this), false);
+            
+                canvas.removeEventListener('mousemove', this.onTouchMove.bind(this), false);
+                canvas.removeEventListener('mouseup', this.onTouchEnd.bind(this), false);
+                canvas.removeEventListener('mousedown', this.onTouchStart.bind(this), false);
+            
+        }
     };
 
     Paint.prototype.getImg= function(){
@@ -94,6 +129,39 @@ var Paint = function(options) {
       delete this.pointers[event.pointerId];
     };
 
+     Paint.prototype.onTouchStart =function(event) {
+
+        if (event.eventPhase == Event.AT_TARGET && (!event.targetTouches || event.targetTouches.length == 1)){
+            console.log("touch start")
+            var t = event.targetTouches ? event.targetTouches[0] : event;
+            this.positions = []
+            this.keepDrawing = true;
+            this.previousFrame = 0;
+            this.x = this.offset.x;
+            this.y = this.offset.y; // XXX This caches it effectively, so scrolling while drawing doesn't work
+            this.startX = t.clientX - this.x;
+            this.startY = t.clientY - this.y;
+            this.positions.push([t.clientX - this.x, t.clientY - this.y, t.force || t.webkitForce || 0.1]);
+        }
+
+    }
+    Paint.prototype.onTouchMove =function(event) {
+
+        if (event.eventPhase == Event.AT_TARGET && (!event.targetTouches || event.targetTouches.length == 1)) {
+            console.log("touch move")
+            event.preventDefault();
+            var t = event.targetTouches ? event.targetTouches[0] : event;
+            this.positions.push([t.clientX - this.x, t.clientY - this.y, t.force || t.webkitForce || 0.1]);
+        }
+    }
+    Paint.prototype.onTouchEnd =function(event) {
+
+        if (event.eventPhase == Event.AT_TARGET) {
+            console.log("touch end")
+            this.keepDrawing = false;
+            this.positions = []
+        }
+    }
     Paint.prototype.clear = function() {
             
         this.ctx.beginPath();
@@ -103,53 +171,86 @@ var Paint = function(options) {
     },
 
     Paint.prototype.renderLoop = function(lastRender) {
-        
-        
-        if (!this.boundingBox && Object.keys(this.pointers).length > 0) {
-            var key = Object.keys(this.pointers)[0];
-            this.boundingBox = {
-                left:  this.pointers[key].x,
-                top: this.pointers[key].y,
-                right: this.pointers[key].x,
-                bottom: this.pointers[key].y
-            };
-        }
-
-        var bb = this.boundingBox; // For perf, "just in case"
-
-      // Go through all pointers, rendering the last segment.
-        for (var pointerId in this.pointers) {
-            var pointer = this.pointers[pointerId];
-            if (pointer.isDelta()) {
-                //console.log('rendering', pointer.targetX);
-                var ctx = this.ctx;
-                //ctx.lineWidth = pointer.width;
-                ctx.strokeStyle = pointer.color;
-                ctx.beginPath();
-                ctx.moveTo(pointer.x, pointer.y);
-
-                ctx.lineTo(pointer.targetX, pointer.targetY);
-
-                if(typeof bb !=undefined){
-                    bb.left = Math.min(bb.left, pointer.targetX);
-                    bb.right = Math.max(bb.right, pointer.targetX);
-                    bb.top = Math.min(bb.top, pointer.targetY);
-                    bb.bottom = Math.max(bb.bottom, pointer.targetY);
-                }else{
-                    bb.left = pointer.targetX;
-                    bb.right = pointer.targetX;
-                    bb.top = pointer.targetY;
-                    bb.bottom =  pointer.targetY;
-                }
-
-
-              ctx.stroke();
-              ctx.closePath();
-
-              pointer.didReachTarget();
+        if (window.PointerEvent){
+            if (!this.boundingBox && Object.keys(this.pointers).length > 0) {
+                var key = Object.keys(this.pointers)[0];
+                this.boundingBox = {
+                    left:  this.pointers[key].x,
+                    top: this.pointers[key].y,
+                    right: this.pointers[key].x,
+                    bottom: this.pointers[key].y
+                };
             }
+
+            var bb = this.boundingBox; // For perf, "just in case"
+
+          // Go through all pointers, rendering the last segment.
+            for (var pointerId in this.pointers) {
+                var pointer = this.pointers[pointerId];
+                if (pointer.isDelta()) {
+                    //console.log('rendering', pointer.targetX);
+                    var ctx = this.ctx;
+                    //ctx.lineWidth = pointer.width;
+                    ctx.strokeStyle = pointer.color;
+                    ctx.beginPath();
+                    ctx.moveTo(pointer.x, pointer.y);
+
+                    ctx.lineTo(pointer.targetX, pointer.targetY);
+
+                    if(typeof bb !=undefined){
+                        bb.left = Math.min(bb.left, pointer.targetX);
+                        bb.right = Math.max(bb.right, pointer.targetX);
+                        bb.top = Math.min(bb.top, pointer.targetY);
+                        bb.bottom = Math.max(bb.bottom, pointer.targetY);
+                    }else{
+                        bb.left = pointer.targetX;
+                        bb.right = pointer.targetX;
+                        bb.top = pointer.targetY;
+                        bb.bottom =  pointer.targetY;
+                    }
+
+
+                  ctx.stroke();
+                  ctx.closePath();
+
+                  pointer.didReachTarget();
+                }
+            }
+            requestAnimFrame(this.renderLoop.bind(this));
+        }else{
+            if (lastRender - this.previousFrame >= 40 && this.keepDrawing ==true) { // Don't try to draw too often
+                console.log("render")
+                var p = this.positions;
+                this.positions = [];
+                var i, l = p.length;
+                if (!this.boundingBox && l > 1)
+                    this.boundingBox = {
+                        left: this.startX,
+                        top: this.startY,
+                        right: this.startX,
+                        bottom: this.startY
+                    };
+                if (l > 1) {
+                    var bb = this.boundingBox; // For perf, "just in case"
+
+                    for(i = 0; i < l; i++) {
+                        // Force isn't available (on Android)
+                        // ctx.lineWidth = p[2] * 10;
+                        this.ctx.lineTo(p[i][0], p[i][1]);
+                        
+                        bb.left = Math.min(bb.left, p[i][0]);
+                        bb.right = Math.max(bb.right, p[i][0]);
+                        bb.top = Math.min(bb.top, p[i][1]);
+                        bb.bottom = Math.max(bb.bottom, p[i][1]);
+                    }
+                    this.ctx.stroke();
+                    this.previousFrame = lastRender;
+                }
+            }
+            requestAnimFrame(this.renderLoop.bind(this));
         }
-        requestAnimFrame(this.renderLoop.bind(this));
+        
+        
     };
 
     function Pointer(options) {
