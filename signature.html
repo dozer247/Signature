@@ -1,0 +1,80 @@
+<!doctype html>
+<head>
+<meta name="viewport" content="width=device-width">
+<meta charset="UTF-8">
+<title>Signature Test</title>
+</head>
+
+<style>
+html, body {
+  padding: 0; margin: 0;
+  overflow: hidden;
+}
+  canvas {
+    background: lightgreen;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+</style>
+
+<canvas width="800" height="600" id="sign"></canvas>
+
+
+<script  src="https://code.jquery.com/jquery-1.12.4.js"
+			  integrity="sha256-Qw82+bXyGq6MydymqBxNPYTaUXXq7c8v3CwiYwLLNXU="
+			  crossorigin="anonymous"></script>
+<script src="signature.js"></script>
+<script>
+	var addSignature  = function  (imgData) {
+		var drawingX, drawingY, finalWidth, finalHeight;
+	    
+	    var tempCanvas = document.createElement("canvas");
+	    tempCanvas.width = imgData.width;
+	    tempCanvas.height = imgData.height;
+	    tempCtx = tempCanvas.getContext('2d');
+	    tempCtx.putImageData(imgData, 0, 0);
+	    dataURL = tempCanvas.toDataURL();
+
+	    var signatureCanvas = $('#sign');
+	    var ctx = signatureCanvas[0].getContext('2d');
+
+	    ctx.clearRect(0, 0, signatureCanvas.width,signatureCanvas.height);
+	    testImage = new Image();
+	    testImage.onload = function(){
+	        widthRatio = imgData.width/200;
+	        heightRatio = imgData.height/100;
+	        ratio = Math.max(widthRatio, heightRatio);
+
+	        if (ratio>1){
+	            finalWidth = imgData.width/ratio;
+	            finalHeight = imgData.height/ratio;
+	        }else{
+	            finalWidth = imgData.width;
+	            finalHeight = imgData.height;
+	        }
+	        if (200>finalWidth){
+	            drawingX = (200-finalWidth)/2;
+	        }
+	        else{
+	            drawingX = 0;
+	        }
+	        
+
+	        if (100>heightRatio){
+	            drawingY = (100-finalHeight)/2;
+	        }
+	        else{
+	            drawingY = 0;
+	        }
+	        
+	        ctx.drawImage(testImage,0,0,imgData.width,imgData.height,drawingX,drawingY,finalWidth,finalHeight);
+	        imgData = signatureCanvas.toDataURL();
+	     }   
+	    
+	    testImage.src = dataURL;
+	 }
+window.addEventListener('load', init);
+function init() {
+    signature.getSignature(addSignature,function(){});
+};
+</script>
