@@ -141,7 +141,8 @@ var Paint = function(options) {
             this.y = this.offset.y; // XXX This caches it effectively, so scrolling while drawing doesn't work
             this.startX = t.clientX - this.x;
             this.startY = t.clientY - this.y;
-            this.positions.push([t.clientX - this.x, t.clientY - this.y, t.force || t.webkitForce || 0.1]);
+            this.ctx.moveTo(t.clientX - this.x, t.clientY - this.y);
+            //this.positions.push([t.clientX - this.x, t.clientY - this.y, t.force || t.webkitForce || 0.1]);
         }
 
     }
@@ -223,14 +224,14 @@ var Paint = function(options) {
                 var p = this.positions;
                 this.positions = [];
                 var i, l = p.length;
-                if (!this.boundingBox && l > 1)
+                if (!this.boundingBox && l > 0)
                     this.boundingBox = {
                         left: this.startX,
                         top: this.startY,
                         right: this.startX,
                         bottom: this.startY
                     };
-                if (l > 1) {
+                if (l > 0) {
                     var bb = this.boundingBox; // For perf, "just in case"
 
                     for(i = 0; i < l; i++) {
