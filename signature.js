@@ -245,8 +245,9 @@ var Paint = function(options) {
                         bb.bottom = Math.max(bb.bottom, p[i][1]);
                     }
                     this.ctx.stroke();
-                    this.previousFrame = lastRender;
+                    
                 }
+                this.previousFrame = lastRender;
             }
             requestAnimFrame(this.renderLoop.bind(this));
         }
